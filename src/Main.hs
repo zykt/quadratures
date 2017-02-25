@@ -8,16 +8,6 @@ data DefIntegral a = DefIntegral (a->a) a a
 --  show (DefIntegral _ start end) = "Integral from" ++ show a ++ "to" ++ show b
 
 
-general_sum :: (Fractional a, Num a, Enum a) => ((a, a) -> a) -> DefIntegral a -> a ->  a
-general_sum sum_func (DefIntegral f start end) steps =
-  sum . map sum_func $ intervals start end steps
-
-
-left_sum' :: (Fractional a, Num a, Enum a) => DefIntegral a -> a -> a
-left_sum' (DefIntegral f start end) steps =
-  general_sum (\(left, right) -> (right - left) * (f left)) (DefIntegral f start end) steps
-
-
 left_sum :: (Fractional a, Num a, Enum a) => DefIntegral a -> a -> a
 left_sum (DefIntegral f start end) steps =
   sum . map (\(left, right) -> (right - left) * (f left)) $ intervals start end steps
@@ -38,12 +28,6 @@ simpsons (DefIntegral f start end) =
   (end - start) / 6 * (f start + 4 * f ((start + end) / 2) + f end)
 
 
-uniform_steps :: (Fractional a, Num a, Enum a) => a -> a -> a -> [a]
-uniform_steps start end steps =
-  [start, start + step .. end]
-  where step = (end - start) / steps
-
-
 intervals :: (Fractional a, Num a, Enum a) => a -> a -> a -> [(a, a)]
 intervals start end n_intervals =
   zip intervals' $ tail intervals'
@@ -56,9 +40,7 @@ main = do
   putStrLn "hello world"
   let a = 0 :: Double
   let b = 10
-  --let steps = 100
-  --let integral1 = left_sum (DefIntegral (\x->x) a b) steps
-  let func = \x -> x**4
+  let func = \x -> x**3
   let integral = DefIntegral func a b
   let test_input = [2, 3, 5, 10, 100, 200]
 
@@ -73,8 +55,6 @@ main = do
 
   let test_simpson = simpsons integral
 
-  --putStrLn $ show $ intervals a (b - (b-a)/steps) steps
-  --putStrLn $ show integral1
   putStrLn $ "steps: " ++ show test_input
   putStrLn $ "left_sum: " ++ show test_left
   putStrLn $ "avg_sum: " ++ show test_right
