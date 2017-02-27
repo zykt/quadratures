@@ -104,4 +104,16 @@ tests = do
 main :: IO ()
 main = do
   tests
-  let func = \x ->3.7 * cos(1.5 * x) * exp(-4*x / 3) + 2.4 * sin(4.5 * x) * exp(2*x / 3) + 4
+  let func = \x -> 3.7 * cos(1.5 * x) * exp(-4*x / 3) + 2.4 * sin(4.5 * x) * exp(2*x / 3) + 4
+  let a = 1.8 :: Double
+  let b = 2.3
+  let integral = DefIntegral func a b
+  let steps = [3.0,4.0..500]
+
+  let integral_value = 2.37880192961486
+
+  let map_left = map (left_sum integral) steps
+  let map_avg = map (average_sum integral) steps
+
+  plotList [] $ zip steps $ map (-integral_value+) map_left
+  plotList [] $ zip steps $ map (-integral_value+) map_avg
