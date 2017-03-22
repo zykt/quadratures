@@ -13,7 +13,7 @@ data DefIntegral a = DefIntegral (a->a) a a
 --instance Show DefIntegral where
 --  show (DefIntegral _ start end) = "Integral from" ++ show a ++ "to" ++ show b
 
-cardano :: (Fractional a, Floating a, Num a, Numeric a, Enum a, Field a) => a -> a -> a -> a -> [a]
+cardano :: (Field a) => a -> a -> a -> a -> [a]
 cardano a b c d =
   let p = c/a - b**2/(3*a**2)
       q = 2*b**3 / (27*a**3) - b*c/(3*a**2) + d/a
@@ -24,7 +24,7 @@ cardano a b c d =
   in [y1 - b/(3*a), y2 - b/(3*a), y3 - b/(3*a)]
 
 
-gauss :: (Fractional a, Floating a, Num a, Numeric a, Enum a, Field a) => DefIntegral a -> a -> a -> a
+gauss :: (Enum a, Field a) => DefIntegral a -> a -> a -> a
 gauss (DefIntegral f start end) alpha steps =
   sum . map (\(left, right) ->
                -- things here
