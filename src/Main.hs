@@ -102,20 +102,6 @@ newton_cotes (DefIntegral f start end) alpha steps =
             ) $ intervals start end steps
 
 
-nc :: (Fractional a, Floating a, Num a, Enum a) => DefIntegral a -> a -> a
-nc (DefIntegral f start end) alpha =
-  let left = start
-      right = end
-      weight0 = ((right-start)**(1-alpha) - (left-start)**(1-alpha)) / (1-alpha)
-      weight1 = ((right-start)**(2-alpha) - (left-start)**(2-alpha)) / (2-alpha) + weight0*start
-      weigth2 = ((right-start)**(3-alpha) - (left-start)**(3-alpha)) / (3-alpha) + 2*weight1*start - weight0*start**2
-      avg = (right - left) / 2
-      coef0 = (weigth2 - weight1*(avg + right) + weight0*avg*right) / ((avg - left)*(right - left))
-      coef1 = -(weigth2 - weight1*(left + right) + weight0*left*right) / ((avg - left)*(right - avg))
-      coef2 = (weigth2 - weight1*(avg + left) + weight0*avg*left) / ((right - avg)*(right - left))
-  in coef0 * f left + coef1 * f avg + coef2 * f right-start
-
-
 left_sum :: (Fractional a, Num a, Enum a) => DefIntegral a -> a -> a
 left_sum (DefIntegral f start end) steps =
   sum . map (\(left, right) -> (right - left) * (f left)) $ intervals start end steps
@@ -147,8 +133,9 @@ simpsons (DefIntegral f start end) =
 
 intervals :: (Fractional a, Num a, Enum a) => a -> a -> a -> [(a, a)]
 intervals start end n_intervals =
-  zip intervals' $ tail intervals'
-  where intervals' = [start, start + step .. end]
+  zip intervals' (tail intervals')
+  where intervals' = [start, start + step .. end - step] ++ [end]
+        -- add end to the end to escape problems with floating point arithmetics
         step  = (end - start) / n_intervals
 
 
@@ -190,7 +177,6 @@ tests = do
   putStrLn $ "avg_sum: " ++ show test_right
   putStrLn $ "trap_sum: " ++ show test_trap
   putStrLn $ "simpsons: " ++ show test_simpson
-  putStrLn $ "test_newton: " ++ show (newton_cotes integral (0.6) 1)
 
 
 outputToFile :: IO()
@@ -235,6 +221,6 @@ main = do
   let map_nc = map (newton_cotes integral 0.6) steps
 
   --plotList [] $ zip steps $ map (-integral_value+) map_left
-  --plotList [] $ zip steps $ map (-integral_value+) map_nc
+  plotList [] $ zip steps $ map (-integral_value+) map_nc
   --outputToFile
   tests
