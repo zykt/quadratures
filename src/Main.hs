@@ -13,6 +13,7 @@ data DefIntegral a = DefIntegral (a->a) a a
 --instance Show DefIntegral where
 --  show (DefIntegral _ start end) = "Integral from" ++ show a ++ "to" ++ show b
 
+
 cardano :: (Field a) => a -> a -> a -> a -> [a]
 cardano a b c d =
   let p = c/a - b**2/(3*a**2)
@@ -48,10 +49,10 @@ gauss (DefIntegral f start end) alpha steps =
                      , -weight 4
                      , -weight 5]
 
-                   coefs_a = linearSolveSVD ws_lhs ws_rhs
+                   coefs_a = ws_lhs <\> ws_rhs
 
                    -- 3) solve 3-order equation for xs
-                   [b, c, d] = toList . flatten $ coefs_a
+                   [d, c, b] = toList . flatten $ coefs_a
                    xs = (1><3) $ cardano 1 b c d
 
                    -- 4) solve linear system for A's
@@ -63,9 +64,9 @@ gauss (DefIntegral f start end) alpha steps =
                    coefs_A = helper_lhs <\> helper_rhs
 
                    -- then sum Ai*fi
-                   fs = (3><1) [f' left', f' avg', f' right']
-                   result_vector = coefs_A <> fs
-               in sum . toList . flatten $ result_vector
+                   fs = (1><3) [f' left', f' avg', f' right']
+                   result_vector = fs <> coefs_A
+               in result_vector `atIndex` (0, 0)
             ) $ intervals start end steps
 
 
@@ -219,8 +220,10 @@ main = do
   let map_left = map (left_sum integral) steps
   let map_avg = map (average_sum integral) steps
   let map_nc = map (newton_cotes integral 0.6) steps
+  let map_gauss = map (gauss integral 0.6) steps
 
   --plotList [] $ zip steps $ map (-integral_value+) map_left
-  plotList [] $ zip steps $ map (-integral_value+) map_nc
+  --plotList [] $ zip steps $ map (-integral_value+) map_nc
+  plotList [] $ zip steps $ map (-integral_value+) map_gauss
   --outputToFile
   tests
