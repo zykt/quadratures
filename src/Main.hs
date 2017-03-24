@@ -1,4 +1,4 @@
-module Main where
+module Integrating where
 
 
 import System.IO
@@ -211,6 +211,40 @@ tests = do
   putStrLn $ "resudue: " ++ show residue_test
 
 
+plots :: IO()
+plots = do
+  let func = \x -> 3.7 * cos(1.5 * x) * exp(-4*x / 3) + 2.4 * sin(4.5 * x) * exp(2*x / 3) + 4
+  let a = 1.8 :: Double
+  let b = 2.3
+  let integral = DefIntegral func a b
+  let steps = [3.0,4.0..500]
+
+  let integral_value = 2.37880192961486
+  --let integral_value = 1.18515
+
+  let map_left = map (left_sum integral) steps
+  let map_avg = map (average_sum integral) steps
+  let map_trap = map (trapezoid_sum integral) steps
+  let map_simps = map (simpson_sum integral) steps
+
+  let map_nc = map (newton_cotes integral 0.6) steps
+  let map_gauss = map (gauss integral 0.6) steps
+
+  let left = zip steps $ map (-integral_value+) map_left
+  let avg = zip steps $ map (-integral_value+) map_avg
+  let trap = zip steps $ map (-integral_value+) map_trap
+  let simps = zip steps $ map (-integral_value+) map_simps
+  --plotList [] $ zip steps $ map (-integral_value+) map_nc
+  --plotList [] $ zip steps $ map (-integral_value+) map_gauss
+
+  let helper values name = (defaultStyle {lineSpec = CustomStyle [LineTitle name]}, values)
+  plotListsStyle [Title "Comparacent of different quadrature methods"]
+    [ helper left "left"
+    , helper avg "avg"
+    , helper trap "trapezoid"
+    , helper simps "simpson"]
+
+
 outputToFile :: IO()
 outputToFile = do
   let func = \x -> 3.7 * cos(1.5 * x) * exp(-4*x / 3) + 2.4 * sin(4.5 * x) * exp(2*x / 3) + 4
@@ -238,23 +272,5 @@ outputToFile = do
 
 main :: IO ()
 main = do
-  putStrLn "This is Main.hs"
-  let func = \x -> 3.7 * cos(1.5 * x) * exp(-4*x / 3) + 2.4 * sin(4.5 * x) * exp(2*x / 3) + 4
-  let a = 1.8 :: Double
-  let b = 2.3
-  let integral = DefIntegral func a b
-  let steps = [3.0,4.0..500]
-
-  --let integral_value = 2.37880192961486
-  let integral_value = 1.18515
-
-  let map_left = map (left_sum integral) steps
-  let map_avg = map (average_sum integral) steps
-  let map_nc = map (newton_cotes integral 0.6) steps
-  let map_gauss = map (gauss integral 0.6) steps
-
-  --plotList [] $ zip steps $ map (-integral_value+) map_left
-  --plotList [] $ zip steps $ map (-integral_value+) map_nc
-  --plotList [] $ zip steps $ map (-integral_value+) map_gauss
   --outputToFile
   tests
