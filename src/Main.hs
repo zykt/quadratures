@@ -14,30 +14,37 @@ data DefIntegral a = DefIntegral (a->a) a a
 --  show (DefIntegral _ start end) = "Integral from" ++ show a ++ "to" ++ show b
 
 
+-- richardson method with r=2
 -- returns tuple of residue and required step
-residue :: (Enum a, Field a) =>
-  DefIntegral a
+residue :: (Enum a, Field a, RealFrac a, Ord a)
+  => DefIntegral a
   -> a
   -> (DefIntegral a -> a -> a -> a)
-  -> (a, a)
+  -> (a, a, a)
 residue (DefIntegral f start end) alpha method =
-  let quadrature step = method (DefIntegral f start end) alpha (intervals start end (floor (start-end)/step + 1))
+  let steps_from_step step = fromIntegral . floor $ (end - start) / step + 1
+      quadrature step = method (DefIntegral f start end) alpha (steps_from_step step)
+      find_m [s1, s2, s3] = - log ((s3 - s2)/(s2 - s1)) / log l
+      error = 10**(-6)
+      initial_step = 0.1
+      l = 2.0
+      steps_ = [initial_step / l**i | i<-[0..]]
+
       iter steps =
         -- find vector (J, Cm, Cm+1, ...) and take J from it
         let steps' = (3><1) $ take 3 steps
             rhs = cmap quadrature steps'
             m = find_m . toList . flatten $ rhs
             lhs = (3><1) [1, 1, 1] ||| cmap (**m) steps' ||| cmap (**(m+1)) steps'
-        in (lhs <\> rhs) `atIndex` (0, 0)
-      find_m [s1, s2, s3] = - log ((s3 - s2)/(s2 - s1)) / log l
-      l = 2
-      error = 10**(-6)
+            integral = (lhs <\> rhs) `atIndex` (0, 0)
+            res = integral - (rhs `atIndex` (2, 0))
+        in (integral, res)
       find_residue steps =
-        let res = iter steps
-        in if res < error
-           then (res, steps !! 2)
-           else find_residue (tail steps)
-  in find_residue []
+        if abs res < error
+        then (integral, res, steps !! 2)
+        else find_residue (tail steps)
+        where (integral, res) = iter steps
+  in find_residue steps_
 
 
 cardano :: (Field a) => a -> a -> a -> a -> [a]
@@ -200,6 +207,9 @@ tests = do
   putStrLn $ "trap_sum: " ++ show test_trap
   putStrLn $ "simpsons: " ++ show test_simpson
 
+  let residue_test = residue integral 0.6 newton_cotes
+  putStrLn $ "resudue: " ++ show residue_test
+
 
 outputToFile :: IO()
 outputToFile = do
@@ -245,6 +255,6 @@ main = do
 
   --plotList [] $ zip steps $ map (-integral_value+) map_left
   --plotList [] $ zip steps $ map (-integral_value+) map_nc
-  plotList [] $ zip steps $ map (-integral_value+) map_gauss
+  --plotList [] $ zip steps $ map (-integral_value+) map_gauss
   --outputToFile
   tests
