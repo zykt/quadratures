@@ -14,6 +14,32 @@ data DefIntegral a = DefIntegral (a->a) a a
 --  show (DefIntegral _ start end) = "Integral from" ++ show a ++ "to" ++ show b
 
 
+-- returns tuple of residue and required step
+residue :: (Enum a, Field a) =>
+  DefIntegral a
+  -> a
+  -> (DefIntegral a -> a -> a -> a)
+  -> (a, a)
+residue (DefIntegral f start end) alpha method =
+  let quadrature step = method (DefIntegral f start end) alpha (intervals start end (floor (start-end)/step + 1))
+      iter steps =
+        -- find vector (J, Cm, Cm+1, ...) and take J from it
+        let steps' = (3><1) $ take 3 steps
+            rhs = cmap quadrature steps'
+            m = find_m . toList . flatten $ rhs
+            lhs = (3><1) [1, 1, 1] ||| cmap (**m) steps' ||| cmap (**(m+1)) steps'
+        in (lhs <\> rhs) `atIndex` (0, 0)
+      find_m [s1, s2, s3] = - log ((s3 - s2)/(s2 - s1)) / log l
+      l = 2
+      error = 10**(-6)
+      find_residue steps =
+        let res = iter steps
+        in if res < error
+           then (res, steps !! 2)
+           else find_residue (tail steps)
+  in find_residue []
+
+
 cardano :: (Field a) => a -> a -> a -> a -> [a]
 cardano a b c d =
   let p = c/a - b**2/(3*a**2)
@@ -38,7 +64,7 @@ gauss (DefIntegral f start end) alpha steps =
                    -- 1) find weights
                    weight n = - (right'**(n-alpha+1) - left'**(n-alpha+1)) / (n-alpha+1)
 
-                   -- 2) solve linear system for a's
+                   --2) solve linear system for a's
                    ws_lhs = (3><3)
                      [ weight 0, weight 1, weight 2
                      , weight 1, weight 2, weight 3
@@ -91,15 +117,10 @@ newton_cotes (DefIntegral f start end) alpha steps =
 
                    fs = (3><1) [f' left', f' avg', f' right']
 
-                   -- a_coefs = tr $ linearSolveSVD xs weigths
                    a_coefs = tr $ xs <\> weights
 
                    result_vector = a_coefs <> fs
-                   -- coef0 = (weigth2 - weight1*(avg + right) + weight0*avg*right) / ((avg - left)*(right - left))
-                   -- coef1 = -(weigth2 - weight1*(left + right) + weight0*left*right) / ((avg - left)*(right - avg))
-                   -- coef2 = (weigth2 - weight1*(avg + left) + weight0*avg*left) / ((right - left)*(right - left))
                in result_vector `atIndex` (0, 0)
-               -- in coef0 * f left + coef1 * f avg + coef2 * f right
             ) $ intervals start end steps
 
 
