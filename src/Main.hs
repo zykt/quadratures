@@ -14,19 +14,78 @@ data DefIntegral a = DefIntegral (a->a) a a
 --  show (DefIntegral _ start end) = "Integral from" ++ show a ++ "to" ++ show b
 
 
--- richardson method with r=2
--- returns tuple of residue and required step
-residue :: (Enum a, Field a, RealFrac a, Ord a)
+mixed :: (Enum a, Field a) => DefIntegral a -> a -> a -> a
+mixed (DefIntegral f start end) alpha steps =
+  sum . map (\(left, right) ->
+               let left' = end - left
+                   right' = end - right
+                   avg' = (right' + left') / 2
+                   f' x = f $ end - x
+
+                   weight n = - (right'**(n-alpha+1) - left'**(n-alpha+1)) / (n-alpha+1)
+
+                   gauss_xs =
+                     let ws_lhs = (3><3)
+                                  [ weight 0, weight 1, weight 2
+                                  , weight 1, weight 2, weight 3
+                                  , weight 2, weight 3, weight 4]
+
+                         ws_rhs = (3><1)
+                                  [ -weight 3
+                                  , -weight 4
+                                  , -weight 5]
+
+                         coefs_a = ws_lhs <\> ws_rhs
+
+                         [d, c, b] = toList . flatten $ coefs_a
+                     in (1><3) $ cardano 1 b c d
+
+                   newton_cotes_xs =
+                     (1><3) [left', avg', right']
+
+                   --solve xs fs =
+                   --  let lhs = (1><3) [1, 1, 1] === xs === cmap (**2) xs
+                   --  in lhs
+               in left + right
+            ) $ intervals start end steps
+
+
+aitken :: (Enum a, Field a, RealFrac a, Num a)
+  => DefIntegral a
+  -> a
+  -> (DefIntegral a -> a -> a -> a)
+  -> a
+  -> (a, (a, a, a))
+aitken integral@(DefIntegral _ a b) alpha method initial_step =
+  let [s1, s2, s3] = map (method integral alpha) [1, 2, 4]
+      error = 10**(-6)
+      l = 2
+      m = - log (abs $ (s3 - s2)/(s2 - s1)) / log l
+      optimal_step = (b-a) * (abs (error * (1 - (b-a)**(-m) / (s2 - s1))))**(1/m)
+  in (optimal_step, residue integral alpha method optimal_step)
+
+
+residue1 :: (Enum a, Field a, RealFrac a, Ord a)
   => DefIntegral a
   -> a
   -> (DefIntegral a -> a -> a -> a)
   -> (a, a, a)
-residue (DefIntegral f start end) alpha method =
+residue1 defintegral alpha method = residue defintegral alpha method 1
+
+
+-- richardson method with r=2
+-- returns tuple of integral value, residue and required step
+residue :: (Enum a, Field a, RealFrac a, Ord a)
+  => DefIntegral a
+  -> a
+  -> (DefIntegral a -> a -> a -> a)
+  -> a
+  -> (a, a, a)
+residue (DefIntegral f start end) alpha method initial_step =
   let steps_from_step step = fromIntegral . floor $ (end - start) / step + 1
       quadrature step = method (DefIntegral f start end) alpha (steps_from_step step)
       find_m [s1, s2, s3] = - log (abs $ (s3 - s2)/(s2 - s1)) / log l
       error = 10**(-6)
-      initial_step = 0.01
       l = 2.0
       steps_ = [initial_step / l**i | i<-[0..]]
 
@@ -58,49 +117,51 @@ cardano a b c d =
   in [y1 - b/(3*a), y2 - b/(3*a), y3 - b/(3*a)]
 
 
+gauss_helper :: (Enum a, Field a) => DefIntegral a -> a -> (a, a) -> a
+gauss_helper (DefIntegral f start end) alpha (left, right) =
+     -- 0) substition
+  let left' = end - left
+      right' = end - right
+      avg' = (right' + left') / 2
+      f' x = f $ end - x
+
+      -- 1) find weights
+      weight n = - (right'**(n-alpha+1) - left'**(n-alpha+1)) / (n-alpha+1)
+
+      --2) solve linear system for a's
+      ws_lhs = (3><3)
+        [ weight 0, weight 1, weight 2
+        , weight 1, weight 2, weight 3
+        , weight 2, weight 3, weight 4]
+
+      ws_rhs = (3><1)
+        [ -weight 3
+        , -weight 4
+        , -weight 5]
+
+      coefs_a = ws_lhs <\> ws_rhs
+
+      -- 3) solve 3-order equation for xs
+      [d, c, b] = toList . flatten $ coefs_a
+      xs = (1><3) $ cardano 1 b c d
+
+      -- 4) solve linear system for A's
+      helper_lhs = (1><3) [1, 1, 1] === xs === cmap (**2) xs
+      helper_rhs = (3><1)
+        [ weight 0
+        , weight 1
+        , weight 2]
+      coefs_A = helper_lhs <\> helper_rhs
+
+      -- then sum Ai*fi
+      fs = cmap f' xs
+      result_vector = fs <> coefs_A
+      [[result]] = toLists result_vector
+  in result
+
 gauss :: (Enum a, Field a) => DefIntegral a -> a -> a -> a
-gauss (DefIntegral f start end) alpha steps =
-  sum . map (\(left, right) ->
-               -- things here
-               -- 0) substition
-               let left' = end - left
-                   right' = end - right
-                   avg' = (right' + left') / 2
-                   f' x = f $ end - x
-
-                   -- 1) find weights
-                   weight n = - (right'**(n-alpha+1) - left'**(n-alpha+1)) / (n-alpha+1)
-
-                   --2) solve linear system for a's
-                   ws_lhs = (3><3)
-                     [ weight 0, weight 1, weight 2
-                     , weight 1, weight 2, weight 3
-                     , weight 2, weight 3, weight 4]
-
-                   ws_rhs = (3><1)
-                     [ -weight 3
-                     , -weight 4
-                     , -weight 5]
-
-                   coefs_a = ws_lhs <\> ws_rhs
-
-                   -- 3) solve 3-order equation for xs
-                   [d, c, b] = toList . flatten $ coefs_a
-                   xs = (1><3) $ cardano 1 b c d
-
-                   -- 4) solve linear system for A's
-                   helper_lhs = (1><3) [1, 1, 1] === xs === cmap (**2) xs
-                   helper_rhs = (3><1)
-                     [ weight 0
-                     , weight 1
-                     , weight 2]
-                   coefs_A = helper_lhs <\> helper_rhs
-
-                   -- then sum Ai*fi
-                   fs = (1><3) [f' left', f' avg', f' right']
-                   result_vector = fs <> coefs_A
-               in result_vector `atIndex` (0, 0)
-            ) $ intervals start end steps
+gauss integral@(DefIntegral f start end) alpha steps =
+  sum $ map (gauss_helper integral alpha) (intervals start end steps)
 
 
 --alpha is power of p(x)
@@ -207,11 +268,18 @@ tests = do
   putStrLn $ "trap_sum: " ++ show test_trap
   putStrLn $ "simpsons: " ++ show test_simpson
 
-  let residue_nc_test = residue integral 0.6 newton_cotes
+  putStrLn $ "\n##########################\n"
+
+  let residue_nc_test = residue1 integral 0.6 newton_cotes
   putStrLn $ "residue newton_cotes: " ++ show residue_nc_test
 
-  let residue_gauss_test = residue integral 0.6 gauss
+  let residue_gauss_test = residue1 integral 0.6 gauss
   putStrLn $ "residue gauss: " ++ show residue_gauss_test
+
+  let aitken_gauss_test = aitken integral 0.6 gauss 0.1
+  let (opt_step, aitken_result) = aitken_gauss_test
+  putStrLn $ "optimal step = " ++ show opt_step
+  putStrLn $ "aitken gauss: " ++ show aitken_result
 
 
 plots :: IO()
