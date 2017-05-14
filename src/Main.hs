@@ -26,7 +26,7 @@ residue (DefIntegral f start end) alpha method =
       quadrature step = method (DefIntegral f start end) alpha (steps_from_step step)
       find_m [s1, s2, s3] = - log (abs $ (s3 - s2)/(s2 - s1)) / log l
       error = 10**(-6)
-      initial_step = 0.1
+      initial_step = 0.01
       l = 2.0
       steps_ = [initial_step / l**i | i<-[0..]]
 
@@ -113,7 +113,7 @@ newton_cotes (DefIntegral f start end) alpha steps =
                    avg' = (right' + left') / 2
                    f' x = f $ end - x
 
-                   weight n = - (right'**(n-alpha+1) - left'**(n-alpha+1)) / (n-alpha+1) 
+                   weight n = - (right'**(n-alpha+1) - left'**(n-alpha+1)) / (n-alpha+1)
 
                    weights = (3><1) [weight 0, weight 1, weight 2]
 
