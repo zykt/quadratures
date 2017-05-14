@@ -164,32 +164,34 @@ gauss integral@(DefIntegral f start end) alpha steps =
   sum $ map (gauss_helper integral alpha) (intervals start end steps)
 
 
+newton_cotes_helper :: (Enum a, Field a) => DefIntegral a -> a -> (a, a) -> a
+newton_cotes_helper (DefIntegral f start end) alpha (left, right) =
+  let -- substitution
+      left' = end - left
+      right' = end - right
+      avg' = (right' + left') / 2
+      f' x = f $ end - x
+
+      weight n = - (right'**(n-alpha+1) - left'**(n-alpha+1)) / (n-alpha+1)
+
+      weights = (3><1) [weight 0, weight 1, weight 2]
+
+      xs = (3><3)
+        [ 1, 1, 1
+        , left', avg', right'
+        , left'**2, avg'**2, right'**2]
+
+      fs = (3><1) [f' left', f' avg', f' right']
+
+      a_coefs = tr $ xs <\> weights
+
+      result_vector = a_coefs <> fs
+  in result_vector `atIndex` (0, 0)
+
 --alpha is power of p(x)
 newton_cotes :: (Enum a, Field a) => DefIntegral a -> a -> a -> a
-newton_cotes (DefIntegral f start end) alpha steps =
-  sum . map (\(left, right) ->
-               let -- substitution
-                   left' = end - left
-                   right' = end - right
-                   avg' = (right' + left') / 2
-                   f' x = f $ end - x
-
-                   weight n = - (right'**(n-alpha+1) - left'**(n-alpha+1)) / (n-alpha+1)
-
-                   weights = (3><1) [weight 0, weight 1, weight 2]
-
-                   xs = (3><3)
-                     [ 1, 1, 1
-                     , left', avg', right'
-                     , left'**2, avg'**2, right'**2]
-
-                   fs = (3><1) [f' left', f' avg', f' right']
-
-                   a_coefs = tr $ xs <\> weights
-
-                   result_vector = a_coefs <> fs
-               in result_vector `atIndex` (0, 0)
-            ) $ intervals start end steps
+newton_cotes integral@(DefIntegral f start end) alpha steps =
+  sum $ map (newton_cotes_helper integral alpha) (intervals start end steps)
 
 
 left_sum :: (Fractional a, Num a, Enum a) => DefIntegral a -> a -> a
