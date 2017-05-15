@@ -195,6 +195,13 @@ mixed1 integral@(DefIntegral f start end) alpha steps =
                             then general_nc_helper 6 integral alpha interval
                             else gauss_helper integral alpha interval
 
+-- mixed with different degrees: gauss with 5 and nc with 2
+mixed2 :: (Enum a, Field a) => DefIntegral a -> a -> a -> a
+mixed2 integral@(DefIntegral f start end) alpha steps =
+  sum . map (\(interval, i) -> helper interval i) $ zip (intervals start end steps) [1..]
+  where helper interval i = if odd i
+                            then general_nc_helper 3 integral alpha interval
+                            else gauss_helper integral alpha interval
 
 left_sum :: (Fractional a, Num a, Enum a) => DefIntegral a -> a -> a
 left_sum (DefIntegral f start end) steps =
@@ -249,33 +256,17 @@ tests = do
   let test method = map (method integral) test_input
   let test2 method = map (method integral 0.6) test_input
 
-  let test_left_sum = left_sum integral
-  let test_left = map test_left_sum test_input
-
-  let test_avg_sum = average_sum integral
-  let test_right = map test_avg_sum test_input
-
-  let test_trap_sum = trapezoid_sum integral
-  let test_trap = map test_trap_sum test_input
-
-  let test_simpson = simpsons integral
-
-  let test_newton_cotes_sum = newton_cotes integral (3/5)
-  let test_newton_cotes = map test_newton_cotes_sum test_input
-
-  let test_gauss_sum = gauss integral (3/5)
-  let test_gauss = map test_gauss_sum test_input
-
   putStrLn $ "steps: " ++ show test_input
   putStrLn $ "newton-cotes: " ++ show (test2 newton_cotes)
+  putStrLn $ "gauss: " ++ show (test2 gauss)
   putStrLn $ "mixed1: " ++ show (test2 mixed1)
+  putStrLn $ "mixed2: " ++ show (test2 mixed2)
   putStrLn "------------------------------\n"
   -- should be 1.18515
-  putStrLn $ "gauss: " ++ show test_gauss
-  putStrLn $ "left_sum: " ++ show test_left
-  putStrLn $ "avg_sum: " ++ show test_right
-  putStrLn $ "trap_sum: " ++ show test_trap
-  putStrLn $ "simpsons: " ++ show test_simpson
+  putStrLn $ "left_sum: " ++ show (test left_sum)
+  putStrLn $ "avg_sum: " ++ show  (test average_sum)
+  putStrLn $ "trap_sum: " ++ show (test trapezoid_sum)
+  putStrLn $ "simpsons: " ++ show (test simpson_sum)
 
   putStrLn $ "\n##########################\n"
 
