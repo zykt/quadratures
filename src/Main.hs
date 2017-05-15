@@ -14,41 +14,9 @@ data DefIntegral a = DefIntegral (a->a) a a
 --  show (DefIntegral _ start end) = "Integral from" ++ show a ++ "to" ++ show b
 
 
-mixed :: (Enum a, Field a) => DefIntegral a -> a -> a -> a
-mixed (DefIntegral f start end) alpha steps =
-  sum . map (\(left, right) ->
-               let left' = end - left
-                   right' = end - right
-                   avg' = (right' + left') / 2
-                   f' x = f $ end - x
-
-                   weight n = - (right'**(n-alpha+1) - left'**(n-alpha+1)) / (n-alpha+1)
-
-                   gauss_xs =
-                     let ws_lhs = (3><3)
-                                  [ weight 0, weight 1, weight 2
-                                  , weight 1, weight 2, weight 3
-                                  , weight 2, weight 3, weight 4]
-
-                         ws_rhs = (3><1)
-                                  [ -weight 3
-                                  , -weight 4
-                                  , -weight 5]
-
-                         coefs_a = ws_lhs <\> ws_rhs
-
-                         [d, c, b] = toList . flatten $ coefs_a
-                     in (1><3) $ cardano 1 b c d
-
-                   newton_cotes_xs =
-                     (1><3) [left', avg', right']
-
-                   --solve xs fs =
-                   --  let lhs = (1><3) [1, 1, 1] === xs === cmap (**2) xs
-                   --  in lhs
-               in left + right
-            ) $ intervals start end steps
-
+--mixed :: (Enum a, Field a) => DefIntegral a -> a -> a -> a
+--mixed (DefIntegral f start end) alpha steps =
+--  sum $ map (\x -> x) (intervals start end steps)
 
 aitken :: (Enum a, Field a, RealFrac a, Num a)
   => DefIntegral a
@@ -119,8 +87,8 @@ cardano a b c d =
 
 gauss_helper :: (Enum a, Field a) => DefIntegral a -> a -> (a, a) -> a
 gauss_helper (DefIntegral f start end) alpha (left, right) =
-     -- 0) substition
-  let left' = end - left
+  let -- 0) substition
+      left' = end - left
       right' = end - right
       avg' = (right' + left') / 2
       f' x = f $ end - x
@@ -159,9 +127,33 @@ gauss_helper (DefIntegral f start end) alpha (left, right) =
       [[result]] = toLists result_vector
   in result
 
+
 gauss :: (Enum a, Field a) => DefIntegral a -> a -> a -> a
 gauss integral@(DefIntegral f start end) alpha steps =
   sum $ map (gauss_helper integral alpha) (intervals start end steps)
+
+
+general_nc_helper :: (Enum a, Field a) => Int -> DefIntegral a -> a -> (a, a) -> a
+general_nc_helper order (DefIntegral f start end) alpha (left, right) =
+  let  -- substitution
+      left' = end - left
+      right' = end - right
+      f' x = f $ end - x
+
+      xs = linspace order (end-left, end-right)
+      fs = asColumn $ cmap f' xs
+
+      weight n = - (right'**(n-alpha+1) - left'**(n-alpha+1)) / (n-alpha+1)
+
+      weights = cmap weight $ (order><1) [0..toEnum order-1]
+
+      xs_matrix = (order><order) [x^p | p<-[0..order-1], x<-toList xs]
+
+      a_coefs = tr $ xs_matrix <\> weights
+      result_vector = a_coefs <> fs
+
+      [[result]] = toLists result_vector
+  in result
 
 
 newton_cotes_helper :: (Enum a, Field a) => DefIntegral a -> a -> (a, a) -> a
@@ -188,10 +180,20 @@ newton_cotes_helper (DefIntegral f start end) alpha (left, right) =
       result_vector = a_coefs <> fs
   in result_vector `atIndex` (0, 0)
 
+
 --alpha is power of p(x)
 newton_cotes :: (Enum a, Field a) => DefIntegral a -> a -> a -> a
 newton_cotes integral@(DefIntegral f start end) alpha steps =
-  sum $ map (newton_cotes_helper integral alpha) (intervals start end steps)
+  sum $ map (general_nc_helper 3 integral alpha) (intervals start end steps)
+
+
+-- mixed with same degree=5
+mixed1 :: (Enum a, Field a) => DefIntegral a -> a -> a -> a
+mixed1 integral@(DefIntegral f start end) alpha steps =
+  sum . map (\(interval, i) -> helper interval i) $ zip (intervals start end steps) [1..]
+  where helper interval i = if odd i
+                            then general_nc_helper 6 integral alpha interval
+                            else gauss_helper integral alpha interval
 
 
 left_sum :: (Fractional a, Num a, Enum a) => DefIntegral a -> a -> a
@@ -244,6 +246,9 @@ tests = do
   let integral = DefIntegral func a b
   let test_input = [2, 3, 5, 10, 50, 100, 200]
 
+  let test method = map (method integral) test_input
+  let test2 method = map (method integral 0.6) test_input
+
   let test_left_sum = left_sum integral
   let test_left = map test_left_sum test_input
 
@@ -262,7 +267,9 @@ tests = do
   let test_gauss = map test_gauss_sum test_input
 
   putStrLn $ "steps: " ++ show test_input
-  putStrLn $ "newton-cotes: " ++ show test_newton_cotes
+  putStrLn $ "newton-cotes: " ++ show (test2 newton_cotes)
+  putStrLn $ "mixed1: " ++ show (test2 mixed1)
+  putStrLn "------------------------------\n"
   -- should be 1.18515
   putStrLn $ "gauss: " ++ show test_gauss
   putStrLn $ "left_sum: " ++ show test_left
