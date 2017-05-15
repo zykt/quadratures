@@ -270,11 +270,12 @@ tests = do
 
   putStrLn $ "\n##########################\n"
 
-  let residue_nc_test = residue1 integral 0.6 newton_cotes
-  putStrLn $ "residue newton_cotes: " ++ show residue_nc_test
+  let residue_test method = residue1 integral 0.6 method
 
-  let residue_gauss_test = residue1 integral 0.6 gauss
-  putStrLn $ "residue gauss: " ++ show residue_gauss_test
+  putStrLn $ "residue newton_cotes: " ++ show (residue_test newton_cotes)
+  putStrLn $ "residue gauss: " ++ show (residue_test gauss)
+  putStrLn $ "residue mixed1: " ++ show (residue_test mixed1)
+  putStrLn $ "residue mixed2: " ++ show (residue_test mixed2)
 
   let aitken_gauss_test = aitken integral 0.6 gauss 0.1
   let (opt_step, aitken_result) = aitken_gauss_test
